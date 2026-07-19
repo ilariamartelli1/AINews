@@ -1,0 +1,61 @@
+# Discovery sources. Each entry is fetched daily by the pipeline.
+#   id      : unique, stable identifier (also stored on each item)
+#   type    : selects the source plugin (currently: "rss")
+#   enabled : set false to pause a source without deleting it
+#   weight  : source trust (0-3-ish); folds into the relevance score
+#   url     : (rss) feed URL
+#
+# All feeds below are free/public RSS. Add API- or scraper-backed sources later
+# by registering a new plugin type — no change needed here beyond a new entry.
+
+sources:
+  - id: openai-blog
+    type: rss
+    weight: 2.0
+    url: https://openai.com/blog/rss.xml
+
+  - id: google-ai-blog
+    type: rss
+    weight: 1.5
+    url: https://blog.google/technology/ai/rss/
+
+  - id: deepmind-blog
+    type: rss
+    weight: 1.5
+    url: https://deepmind.google/blog/rss.xml
+
+  - id: huggingface-blog
+    type: rss
+    weight: 2.0
+    url: https://huggingface.co/blog/feed.xml
+
+  - id: meta-ai-blog
+    type: rss
+    weight: 1.5
+    enabled: false   # no public RSS endpoint found (404); revisit / replace
+    url: https://ai.meta.com/blog/rss/
+
+  - id: ollama-blog
+    type: rss
+    weight: 1.0
+    url: https://ollama.com/blog/rss.xml
+
+  - id: github-blog-ai
+    type: rss
+    weight: 1.0
+    url: https://github.blog/ai-and-ml/feed/
+
+  - id: hn-frontpage
+    type: rss
+    weight: 0.8
+    url: https://hnrss.org/frontpage?points=100
+
+  - id: venturebeat-ai
+    type: rss
+    weight: 0.8
+    url: https://venturebeat.com/category/ai/feed/
+
+  - id: techcrunch-ai
+    type: rss
+    weight: 0.8
+    url: https://techcrunch.com/category/artificial-intelligence/feed/

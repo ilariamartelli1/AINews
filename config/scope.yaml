@@ -1,0 +1,115 @@
+# Editorial scope — the single knob that defines what the blog covers.
+# Edit this file to retarget the product to a different AI niche (e.g. narrow
+# from "AI tools & models" to "AI image generation") without touching code.
+
+name: "Practical AI: Tools, Models & Frameworks"
+description: >
+  Concrete AI product developments: new software products, new features, new
+  models, new frameworks, and newly introduced paradigms. Signal over noise —
+  not a general AI news site.
+
+topics:
+  - New AI models and model releases
+  - New AI developer tools, SDKs, and APIs
+  - New AI frameworks and libraries
+  - New product features and capabilities
+  - Emerging AI paradigms and approaches
+
+# High-signal terms — strong evidence an item is in scope.
+strong_keywords:
+  - large language model
+  - llm
+  - foundation model
+  - open source model
+  - open-weight
+  - open weights
+  - multimodal
+  - fine-tune
+  - fine-tuning
+  - inference
+  - model release
+  - new model
+  - framework
+  - sdk
+  - api
+  - developer tool
+  - agent framework
+  - context window
+  - benchmark
+  - diffusion model
+  - transformer
+  - quantization
+
+# Supporting terms — weaker in-scope evidence, add up in aggregate.
+normal_keywords:
+  - ai
+  - artificial intelligence
+  - machine learning
+  - neural network
+  - model
+  - tool
+  - feature
+  - library
+  - platform
+  - training
+  - dataset
+  - embedding
+  - vector
+  - gpu
+  - open source
+
+# Novelty markers — concrete-announcement language. Boost items that report
+# something new rather than commentary about something existing.
+announcement_signals:
+  - launches
+  - launched
+  - introducing
+  - introduces
+  - announces
+  - announced
+  - releases
+  - released
+  - now available
+  - unveils
+  - unveiled
+  - debuts
+  - rolls out
+  - rolling out
+  - general availability
+  - open sources
+  - open-sourced
+  - ships
+  - adds support
+
+# Generic commentary / noise — penalize or drop. This is what keeps the blog
+# focused on concrete changes rather than trend pieces and hot takes.
+exclude_keywords:
+  - opinion
+  - op-ed
+  - podcast
+  - webinar
+  - hot take
+  - explainer
+  - how ai will
+  - the future of ai
+  - what to expect
+  - predictions for
+  - things you need to know
+  - top 10
+  - top ten
+  - listicle
+  - hiring
+  - job opening
+  - we're hiring
+  - sponsored
+  - advertisement
+  - horoscope
+  - opinion piece
+
+scoring:
+  strong_keyword: 3.0
+  normal_keyword: 1.0
+  announcement_signal: 2.0
+  exclude_penalty: 4.0
+  source_weight_scale: 1.0
+  min_score: 4.0
