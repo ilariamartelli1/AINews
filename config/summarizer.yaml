@@ -1,0 +1,22 @@
+# Article generation config — summarizer engine, comparison, and quality checks.
+# Swap `type` between engines without touching pipeline code:
+#   extractive : zero-cost, deterministic, offline (default fallback)
+#   llm        : Claude (Anthropic API) — richer prose; reads ANTHROPIC_API_KEY
+
+type: llm
+
+# --- LLM engine (ignored by the extractive engine) ---
+# Model default follows Anthropic guidance (most capable).
+model: claude-haiku-4-5
+max_tokens: 2048
+
+# --- Comparative context (TF-IDF cosine over the archive) ---
+compare_top_k: 3
+compare_min_similarity: 0.08
+
+# --- Quality checks (word counts over the assembled article body) ---
+min_words: 40
+max_words: 320
+
+# --- Input ---
+fetch_full_page: true   # scrape the source page for a richer "what changed"

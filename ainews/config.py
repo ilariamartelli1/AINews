@@ -119,6 +119,43 @@ class SourceConfig:
         )
 
 
+@dataclass
+class SummarizerConfig:
+    """Configuration for article generation (summarizer engine + comparison + QC).
+
+    ``type`` selects the summarizer plugin ("extractive" | "llm"). LLM-only fields
+    (``model``, ``max_tokens``) are ignored by the extractive engine.
+    """
+
+    type: str = "extractive"
+    model: str = "claude-haiku-4-5"      # used by the llm engine
+    max_tokens: int = 2048               # used by the llm engine
+
+    # Comparative context
+    compare_top_k: int = 3               # max related prior items to surface
+    compare_min_similarity: float = 0.08  # cosine threshold to count as related
+
+    # Quality checks (word counts over the assembled body)
+    min_words: int = 40
+    max_words: int = 320
+
+    # Article generation controls
+    fetch_full_page: bool = True         # scrape source page for richer input
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any] | None) -> "SummarizerConfig":
+        d = d or {}
+        known = {f: d[f] for f in cls.__dataclass_fields__ if f in d}
+        return cls(**known)
+
+    @classmethod
+    def load(cls, path: str | Path) -> "SummarizerConfig":
+        path = Path(path)
+        with path.open("r", encoding="utf-8") as fh:
+            data = yaml.safe_load(fh) or {}
+        return cls.from_dict(data)
+
+
 def load_sources(path: str | Path) -> list[SourceConfig]:
     """Load the list of configured sources from YAML.
 
