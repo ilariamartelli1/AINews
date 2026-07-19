@@ -5,7 +5,7 @@ highly-specific AI news (new models, tools, frameworks, paradigms). See
 [ai-news-blog-prd.md](ai-news-blog-prd.md) for the product spec.
 
 **Sprint 1: Discovery & Scope.** **Sprint 2: Article Generation & Context.**
-Later sprints add publication and the blog website.
+**Sprint 3: Website & Archive.** A later sprint wires the daily automation.
 
 ## What it does
 
@@ -17,6 +17,11 @@ fetch (pluggable sources) → dedupe (within-batch + cross-run) → relevance/no
 **Sprint 2 — article generation:**
 ```
 select relevant item → fetch full page (cache) → find related priors (TF-IDF) → summarize (Claude, extractive fallback) → quality-check → persist article + sources + comparison links
+```
+
+**Sprint 3 — website:**
+```
+published articles (quality=pass) → static site: post list + single posts + searchable archive + RSS/JSON feeds
 ```
 
 - **Editorial scope** ([config/scope.yaml](config/scope.yaml)) — the single knob
@@ -43,6 +48,12 @@ select relevant item → fetch full page (cache) → find related priors (TF-IDF
   summary than the feed blurb; extracted text is cached on the item.
 - **Quality checks** — length, missing sources, empty/placeholder/refusal text,
   and comparison presence are checked before an article is marked publishable.
+- **Static website** ([ainews/site/](ainews/site/)) — renders the archive into a
+  blog-first static site: post list, single-post pages (with sources and
+  comparison links shown for transparency), a client-side **searchable archive**
+  (filter by date / source / tag + full-text), and **RSS + JSON feeds**. Only
+  quality-`pass` articles are published. Host-agnostic output — open locally or
+  deploy to any static host.
 
 ## Setup
 
@@ -60,8 +71,13 @@ ainews generate -n 5    # cap how many to write this run
 ainews stats            # archive + article counts by status
 ainews list relevant    # show recent relevant candidates
 ainews articles         # show recent generated articles + comparison links
+ainews build            # render the static website into ./site
+ainews build --base-url https://ai.example.com   # absolute feed URLs
 ainews -v run           # verbose logging
 ```
+
+After `build`, open `site/index.html` in a browser. The site is plain static
+files (HTML/CSS/JS + `feed.xml` / `feed.json` / `search.json`).
 
 Config/DB paths are overridable: `--scope`, `--sources`, `--summarizer`, `--db`.
 
@@ -93,6 +109,24 @@ wired up in a later sprint) at zero cost.
 Edit [config/scope.yaml](config/scope.yaml) — e.g. to focus on AI image
 generation, swap `strong_keywords`/`topics` for diffusion/image terms and tune
 `scoring.min_score`. No code changes required.
+
+This single YAML file **is** the admin/config surface — there is no separate
+admin app to secure. Edit it locally, or via GitHub's web editor from any
+browser; the daily automation (a later sprint) rebuilds the site on change.
+
+## Hosting (private, zero-cost)
+
+The build output is static, so it can be hosted free. To keep it **private (only
+you) and always-on without your PC running**:
+
+- **Cloudflare Pages + Cloudflare Access** (recommended) — free static hosting +
+  free access control that gates the site behind your Google/email login.
+  Point Pages at the built `site/` directory (or the Actions artifact).
+- **GitHub Pages** — free and always-on, but **public** on free plans.
+- **Local** — just open `site/index.html`; private but only while your PC is on.
+
+The build itself is host-agnostic; pass `--base-url https://<your-domain>` so the
+RSS/JSON feed links are absolute.
 
 ## Adding a new source type
 
@@ -127,6 +161,7 @@ an entry with `type: myapi` to `config/sources.yaml`.
 | [ainews/compare.py](ainews/compare.py) | TF-IDF cosine comparative context |
 | [ainews/quality.py](ainews/quality.py) | pre-publication quality checks |
 | [ainews/generate.py](ainews/generate.py) | article-generation orchestrator |
+| [ainews/site/](ainews/site/) | static site generator (builder, templates, CSS/JS) |
 | [ainews/cli.py](ainews/cli.py) | `ainews` CLI |
 
 ## Tests
