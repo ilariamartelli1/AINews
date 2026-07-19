@@ -365,6 +365,39 @@ class Store:
         ).fetchall()
         return [self._row_to_dict(r) for r in rows]
 
+    def published_articles(self, limit: int | None = None) -> list[dict[str, Any]]:
+        """Articles cleared for publication (quality_status = 'pass'), joined with
+        their source item's date/source/url, newest first.
+
+        This is the publish gate the website renders from: an article that failed
+        quality checks is stored for audit but never surfaced on the site.
+        """
+        q = (
+            "SELECT a.*, "
+            "       i.published_at AS item_published_at, "
+            "       i.source_id   AS item_source_id, "
+            "       i.url         AS item_url "
+            "FROM articles a JOIN items i ON i.id = a.item_id "
+            "WHERE a.quality_status = 'pass' "
+            "ORDER BY COALESCE(i.published_at, a.created_at) DESC, a.id DESC"
+        )
+        if limit is not None:
+            rows = self.conn.execute(q + " LIMIT ?", (limit,)).fetchall()
+        else:
+            rows = self.conn.execute(q).fetchall()
+        articles = []
+        for r in rows:
+            art = self._row_to_dict(r)
+            art["sources"] = [dict(s) for s in self.conn.execute(
+                "SELECT url, title, source_id, is_primary FROM article_sources "
+                "WHERE article_id = ? ORDER BY is_primary DESC", (art["id"],))]
+            art["comparisons"] = [dict(c) for c in self.conn.execute(
+                "SELECT related_item_id, related_title, related_url, similarity, note "
+                "FROM article_comparisons WHERE article_id = ? ORDER BY similarity DESC",
+                (art["id"],))]
+            articles.append(art)
+        return articles
+
     def get_article(self, article_id: int) -> dict[str, Any] | None:
         row = self.conn.execute(
             "SELECT * FROM articles WHERE id = ?", (article_id,)
