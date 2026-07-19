@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Archive — {{ site_title }}{% endblock %}
+{% block content %}
+<h1 class="page-title">Archive</h1>
+
+<div class="filters">
+  <input type="search" id="q" placeholder="Search title & text…" autocomplete="off">
+  <select id="source">
+    <option value="">All sources</option>
+    {% for s in sources %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+  </select>
+  <select id="tag">
+    <option value="">All tags</option>
+    {% for t in tags %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+  </select>
+  <input type="month" id="month" aria-label="Filter by month">
+  <button id="clear" type="button">Clear</button>
+</div>
+
+<p class="muted" id="count">{{ posts|length }} posts</p>
+
+<ul class="post-list" id="results">
+  {% for post in posts %}
+  <li class="post-card"
+      data-source="{{ post.source }}"
+      data-tags="{{ post.tags|join(',') }}"
+      data-date="{{ post.date_iso }}"
+      data-text="{{ (post.title ~ ' ' ~ post.what_changed ~ ' ' ~ post.why_it_matters)|lower }}">
+    <div class="post-meta">
+      {% if post.date_display %}<time datetime="{{ post.date_iso }}">{{ post.date_display }}</time>{% endif %}
+      {% if post.source %}<span class="source">{{ post.source }}</span>{% endif %}
+    </div>
+    <h2 class="post-card-title"><a href="{{ post.permalink }}">{{ post.title }}</a></h2>
+    {% if post.tags %}
+    <div class="tags">
+      {% for tag in post.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
+    </div>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+
+<script src="static/archive.js" defer></script>
+{% endblock %}

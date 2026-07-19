@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ site_title }}{% endblock %}</title>
+  <meta name="description" content="{{ site_description }}">
+  <link rel="alternate" type="application/rss+xml" title="{{ site_title }}" href="{{ rel|default('') }}feed.xml">
+  <link rel="alternate" type="application/json" title="{{ site_title }}" href="{{ rel|default('') }}feed.json">
+  <link rel="stylesheet" href="{{ rel|default('') }}static/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="{{ rel|default('') }}index.html">{{ site_title }}</a>
+    <nav>
+      <a href="{{ rel|default('') }}index.html"{% if page == 'home' %} class="active"{% endif %}>Latest</a>
+      <a href="{{ rel|default('') }}archive.html"{% if page == 'archive' %} class="active"{% endif %}>Archive</a>
+      <a href="{{ rel|default('') }}feed.xml">RSS</a>
+    </nav>
+  </header>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="site-footer">
+    <p>{{ site_description }}</p>
+    <p class="muted">Built {{ built_at.strftime('%Y-%m-%d %H:%M UTC') }} · automated AI news blog</p>
+  </footer>
+</body>
+</html>
