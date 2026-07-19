@@ -1,4 +1,4 @@
-# AINews — automated AI news blog
+# AINews - automated AI news blog
 
 Fully automated pipeline that discovers, filters, deduplicates, and archives
 highly-specific AI news (new models, tools, frameworks, paradigms). See
