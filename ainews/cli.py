@@ -16,12 +16,14 @@ import logging
 import sys
 from pathlib import Path
 
-from .config import ScopeConfig, load_sources
+from .config import ScopeConfig, SummarizerConfig, load_sources
+from .generate import generate as run_generate
 from .pipeline import run as run_pipeline
 from .store import Store
 
 DEFAULT_SCOPE = "config/scope.yaml"
 DEFAULT_SOURCES = "config/sources.yaml"
+DEFAULT_SUMMARIZER = "config/summarizer.yaml"
 DEFAULT_DB = "data/ainews.db"
 
 
@@ -48,6 +50,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_list.add_argument("-n", "--limit", type=int, default=20)
     _add_common(p_list)
 
+    p_gen = sub.add_parser("generate", help="generate articles for relevant items")
+    p_gen.add_argument("-n", "--limit", type=int, default=20,
+                       help="max items to write articles for")
+    p_gen.add_argument("--summarizer", default=DEFAULT_SUMMARIZER,
+                       help="path to summarizer.yaml")
+    _add_common(p_gen)
+
+    p_arts = sub.add_parser("articles", help="list recent generated articles")
+    p_arts.add_argument("-n", "--limit", type=int, default=20)
+    _add_common(p_arts)
+
     return parser
 
 
@@ -71,6 +84,9 @@ def cmd_stats(args: argparse.Namespace) -> int:
         print(f"total items: {total}")
         for status in ("relevant", "irrelevant", "duplicate", "new"):
             print(f"  {status:11s}: {store.count(status)}")
+        print(f"articles: {store.count_articles()}")
+        for status in ("pass", "flagged", "fail"):
+            print(f"  {status:11s}: {store.count_articles(status)}")
     return 0
 
 
@@ -82,6 +98,34 @@ def cmd_list(args: argparse.Namespace) -> int:
         print(f"             {r['source_id']}  {r['url']}")
     if not rows:
         print("(no items)")
+    return 0
+
+
+def cmd_generate(args: argparse.Namespace) -> int:
+    scope = ScopeConfig.load(args.scope)
+    sconfig = SummarizerConfig.load(args.summarizer)
+    print(f"scope: {scope.name}  summarizer: {sconfig.type}"
+          + (f" ({sconfig.model})" if sconfig.type == "llm" else ""))
+    with Store(args.db) as store:
+        report = run_generate(scope, sconfig, store, limit=args.limit)
+    print(json.dumps(report.as_dict(), indent=2))
+    if report.errors:
+        print(f"\n{len(report.errors)} item(s) errored (run continued).", file=sys.stderr)
+    print(f"\narticles generated: {report.generated} "
+          f"(pass={report.passed} flagged={report.flagged} fail={report.failed_quality})")
+    return 0
+
+
+def cmd_articles(args: argparse.Namespace) -> int:
+    with Store(args.db) as store:
+        rows = store.recent_articles(limit=args.limit)
+        for r in rows:
+            print(f"#{r['id']} [{r['quality_status']:8s}] {r['title']}")
+            art = store.get_article(r["id"])
+            for c in art.get("comparisons", []):
+                print(f"      ↳ vs {c['related_title']}  (sim {c['similarity']})")
+    if not rows:
+        print("(no articles)")
     return 0
 
 
@@ -98,7 +142,10 @@ def main(argv: list[str] | None = None) -> int:
         parser.print_help()
         return 1
 
-    handlers = {"run": cmd_run, "stats": cmd_stats, "list": cmd_list}
+    handlers = {
+        "run": cmd_run, "stats": cmd_stats, "list": cmd_list,
+        "generate": cmd_generate, "articles": cmd_articles,
+    }
     return handlers[args.command](args)
 
 
