@@ -19,12 +19,14 @@ from pathlib import Path
 from .config import ScopeConfig, SummarizerConfig, load_sources
 from .generate import generate as run_generate
 from .pipeline import run as run_pipeline
+from .site import build_site
 from .store import Store
 
 DEFAULT_SCOPE = "config/scope.yaml"
 DEFAULT_SOURCES = "config/sources.yaml"
 DEFAULT_SUMMARIZER = "config/summarizer.yaml"
 DEFAULT_DB = "data/ainews.db"
+DEFAULT_SITE_OUT = "site"
 
 
 def _add_common(p: argparse.ArgumentParser) -> None:
@@ -60,6 +62,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_arts = sub.add_parser("articles", help="list recent generated articles")
     p_arts.add_argument("-n", "--limit", type=int, default=20)
     _add_common(p_arts)
+
+    p_build = sub.add_parser("build", help="build the static website from published articles")
+    p_build.add_argument("--out", default=DEFAULT_SITE_OUT, help="output directory")
+    p_build.add_argument("--base-url", default="",
+                         help="absolute site URL (for feed links, e.g. https://ai.example.com)")
+    _add_common(p_build)
 
     return parser
 
@@ -129,6 +137,16 @@ def cmd_articles(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_build(args: argparse.Namespace) -> int:
+    from pathlib import Path
+    scope_path = args.scope if Path(args.scope).exists() else None
+    stats = build_site(args.db, args.out, scope_path=scope_path, base_url=args.base_url)
+    print(f"built site -> {args.out}/  "
+          f"({stats['posts']} posts, {stats['sources']} sources, {stats['tags']} tags)")
+    print(f"open {args.out}/index.html")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -144,7 +162,7 @@ def main(argv: list[str] | None = None) -> int:
 
     handlers = {
         "run": cmd_run, "stats": cmd_stats, "list": cmd_list,
-        "generate": cmd_generate, "articles": cmd_articles,
+        "generate": cmd_generate, "articles": cmd_articles, "build": cmd_build,
     }
     return handlers[args.command](args)
 
