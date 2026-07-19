@@ -12,5 +12,9 @@ data/*.db-journal
 data/*.db-wal
 data/*.db-shm
 
+# Secrets — never commit API keys
+.env
+.env.*
+
 # OS
 .DS_Store
