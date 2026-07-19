@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ainews"
+version = "0.1.0"
+description = "Fully automated, highly-filtered AI news blog — discovery pipeline"
+requires-python = ">=3.10"
+dependencies = [
+    "feedparser>=6.0.11",
+    "httpx>=0.27.0",
+    "PyYAML>=6.0.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+ainews = "ainews.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["ainews*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
