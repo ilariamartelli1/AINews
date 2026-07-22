@@ -5,7 +5,8 @@ highly-specific AI news (new models, tools, frameworks, paradigms). See
 [ai-news-blog-prd.md](ai-news-blog-prd.md) for the product spec.
 
 **Sprint 1: Discovery & Scope.** **Sprint 2: Article Generation & Context.**
-**Sprint 3: Website & Archive.** A later sprint wires the daily automation.
+**Sprint 3: Website & Archive.** **Sprint 4: Automation & Ops.** — the product is
+complete: a scheduled cloud job runs the whole pipeline daily and publishes.
 
 ## What it does
 
@@ -22,6 +23,11 @@ select relevant item → fetch full page (cache) → find related priors (TF-IDF
 **Sprint 3 — website:**
 ```
 published articles (quality=pass) → static site: post list + single posts + searchable archive + RSS/JSON feeds
+```
+
+**Sprint 4 — daily automation (one command, run in the cloud):**
+```
+ainews daily = discover → filter → dedupe → summarize → compare → publish → health verdict
 ```
 
 - **Editorial scope** ([config/scope.yaml](config/scope.yaml)) — the single knob
@@ -54,6 +60,14 @@ published articles (quality=pass) → static site: post list + single posts + se
   (filter by date / source / tag + full-text), and **RSS + JSON feeds**. Only
   quality-`pass` articles are published. Host-agnostic output — open locally or
   deploy to any static host.
+- **Daily automation** ([ainews/daily.py](ainews/daily.py) + [.github/workflows/daily.yml](.github/workflows/daily.yml))
+  — `ainews daily` runs the whole pipeline end-to-end and writes a health verdict.
+  A GitHub Actions cron runs it in the cloud (your PC stays off), commits the
+  archive DB back for persistence, deploys the site to Cloudflare Pages, and
+  **alerts** on failures / empty-news days.
+- **Monitoring** ([ainews/monitor.py](ainews/monitor.py)) — evaluates each run as
+  `ok` / `empty_news` / `failure`. Failures fail the CI job (native email) and,
+  with empty-news days, open/append a GitHub Issue labelled `ainews-alert`.
 
 ## Setup
 
@@ -73,8 +87,13 @@ ainews list relevant    # show recent relevant candidates
 ainews articles         # show recent generated articles + comparison links
 ainews build            # render the static website into ./site
 ainews build --base-url https://ai.example.com   # absolute feed URLs
+ainews daily            # full pipeline: discover→filter→dedupe→summarize→compare→publish
+ainews daily --generate-limit 50 --base-url https://ai.example.com
 ainews -v run           # verbose logging
 ```
+
+`ainews daily` writes a health verdict + full report to `data/last_run.json` and
+exits non-zero only on failure (empty-news days pass unless `--fail-on-empty`).
 
 After `build`, open `site/index.html` in a browser. The site is plain static
 files (HTML/CSS/JS + `feed.xml` / `feed.json` / `search.json`).
@@ -128,6 +147,28 @@ you) and always-on without your PC running**:
 The build itself is host-agnostic; pass `--base-url https://<your-domain>` so the
 RSS/JSON feed links are absolute.
 
+## Daily automation setup (GitHub Actions)
+
+[.github/workflows/daily.yml](.github/workflows/daily.yml) runs `ainews daily` on a
+cron (07:00 UTC), commits `data/ainews.db` back (so dedup + archive persist across
+runs), deploys `site/` to Cloudflare Pages, and opens a GitHub Issue on
+failure / empty-news days. To enable it, set in the repo:
+
+**Secrets** (Settings → Secrets and variables → Actions → Secrets):
+- `ANTHROPIC_API_KEY` — for the LLM summarizer (omit if using `type: extractive`).
+- `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` — for the Cloudflare Pages deploy.
+
+**Variables** (same page → Variables):
+- `SITE_BASE_URL` — e.g. `https://ainews.pages.dev` (absolute feed links).
+- `CLOUDFLARE_PROJECT` — Pages project name (default `ainews`).
+- `GENERATE_LIMIT` — max articles/day (default `50`; caps daily LLM cost).
+
+One-time Cloudflare setup: create a Pages project, generate an API token with the
+Pages:Edit permission, and (for private access) enable **Cloudflare Access** on the
+project restricted to your login. The archive DB is committed by the workflow —
+the first run seeds it; subsequent runs append. Cost stays near-zero: Actions cron
++ Cloudflare Pages are free; the only spend is the Haiku summarizer (~cents/day).
+
 ## Adding a new source type
 
 ```python
@@ -162,6 +203,9 @@ an entry with `type: myapi` to `config/sources.yaml`.
 | [ainews/quality.py](ainews/quality.py) | pre-publication quality checks |
 | [ainews/generate.py](ainews/generate.py) | article-generation orchestrator |
 | [ainews/site/](ainews/site/) | static site generator (builder, templates, CSS/JS) |
+| [ainews/daily.py](ainews/daily.py) | full daily pipeline orchestrator + status file |
+| [ainews/monitor.py](ainews/monitor.py) | health evaluation + alert formatting |
+| [.github/workflows/daily.yml](.github/workflows/daily.yml) | scheduled cloud run: cron → pipeline → commit DB → deploy → alert |
 | [ainews/cli.py](ainews/cli.py) | `ainews` CLI |
 
 ## Tests
