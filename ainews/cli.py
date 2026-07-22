@@ -17,7 +17,9 @@ import sys
 from pathlib import Path
 
 from .config import ScopeConfig, SummarizerConfig, load_sources
+from .daily import run_daily, write_status, DEFAULT_STATUS_FILE
 from .generate import generate as run_generate
+from . import monitor
 from .pipeline import run as run_pipeline
 from .site import build_site
 from .store import Store
@@ -68,6 +70,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_build.add_argument("--base-url", default="",
                          help="absolute site URL (for feed links, e.g. https://ai.example.com)")
     _add_common(p_build)
+
+    p_daily = sub.add_parser("daily", help="run the full daily pipeline (discover→publish)")
+    p_daily.add_argument("--out", default=DEFAULT_SITE_OUT, help="site output directory")
+    p_daily.add_argument("--base-url", default="", help="absolute site URL for feed links")
+    p_daily.add_argument("--summarizer", default=DEFAULT_SUMMARIZER, help="path to summarizer.yaml")
+    p_daily.add_argument("--generate-limit", type=int, default=50,
+                        help="max articles to generate this run (caps daily LLM cost)")
+    p_daily.add_argument("--status-file", default=DEFAULT_STATUS_FILE,
+                        help="where to write the run health + report JSON")
+    p_daily.add_argument("--fail-on-empty", action="store_true",
+                        help="exit non-zero on an empty-news day (default: only on failure)")
+    _add_common(p_daily)
 
     return parser
 
@@ -147,6 +161,34 @@ def cmd_build(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_daily(args: argparse.Namespace) -> int:
+    from datetime import datetime, timezone
+    scope = ScopeConfig.load(args.scope)
+    sources = load_sources(args.sources)
+    sconfig = SummarizerConfig.load(args.summarizer)
+    now = datetime.now(timezone.utc).isoformat()
+    print(f"scope: {scope.name}  summarizer: {sconfig.type}  "
+          f"generate-limit: {args.generate_limit}")
+
+    with Store(args.db) as store:
+        report = run_daily(scope, sources, sconfig, store, args.out,
+                           base_url=args.base_url, generate_limit=args.generate_limit,
+                           now=now)
+
+    health = monitor.evaluate(report)
+    write_status(report, health, args.status_file)
+
+    print(json.dumps(report.as_dict(), indent=2))
+    print(f"\nhealth: {health.status} — {health.summary}")
+    print(f"status written to {args.status_file}")
+
+    if health.is_failure:
+        return 1                                   # trigger CI failure alert
+    if health.status == monitor.EMPTY and args.fail_on_empty:
+        return 2
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -163,6 +205,7 @@ def main(argv: list[str] | None = None) -> int:
     handlers = {
         "run": cmd_run, "stats": cmd_stats, "list": cmd_list,
         "generate": cmd_generate, "articles": cmd_articles, "build": cmd_build,
+        "daily": cmd_daily,
     }
     return handlers[args.command](args)
 
