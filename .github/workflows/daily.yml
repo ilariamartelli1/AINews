@@ -1,0 +1,98 @@
+name: daily
+
+# Runs the whole product once a day in the cloud (PC stays off):
+#   discover → filter → dedupe → summarize → compare → publish
+# then commits the archive back, deploys the site, and alerts on trouble.
+
+on:
+  schedule:
+    - cron: "0 7 * * *"        # 07:00 UTC daily
+  workflow_dispatch: {}         # manual "Run workflow" button
+
+# Only one daily run at a time (they share the committed DB).
+concurrency:
+  group: ainews-daily
+  cancel-in-progress: false
+
+permissions:
+  contents: write               # commit the archive DB back
+  issues: write                 # open/append alert issues
+
+jobs:
+  daily:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install -e .
+
+      - name: Run daily pipeline
+        id: daily
+        continue-on-error: true          # still commit + alert on failure
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          ainews daily \
+            --base-url "${{ vars.SITE_BASE_URL }}" \
+            --generate-limit "${{ vars.GENERATE_LIMIT || '50' }}" \
+            --out site
+
+      - name: Commit archive DB
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/ainews.db
+          git diff --staged --quiet || git commit -m "daily run $(date -u +%FT%TZ)"
+          git push
+
+      - name: Deploy to Cloudflare Pages
+        if: steps.daily.outcome == 'success'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx --yes wrangler@3 pages deploy site \
+            --project-name "${{ vars.CLOUDFLARE_PROJECT || 'ainews' }}" \
+            --branch main --commit-dirty=true
+
+      - name: Alert on failure / empty-news
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create ainews-alert --color B60205 --description "AINews pipeline alerts" 2>/dev/null || true
+          python - <<'PY'
+          import json, os, subprocess
+          from ainews.monitor import Health, format_alert
+          try:
+              data = json.load(open("data/last_run.json"))
+          except FileNotFoundError:
+              data = {"health": {"status": "failure",
+                                 "summary": "no status file — pipeline crashed before writing one",
+                                 "details": {}}}
+          h = Health(**{k: data["health"][k] for k in ("status", "summary", "details")})
+          if h.status not in ("failure", "empty_news"):
+              raise SystemExit(0)
+          title, body = format_alert(h, repo_run_url=os.environ.get("RUN_URL", ""))
+          num = subprocess.run(
+              ["gh", "issue", "list", "--state", "open", "--label", "ainews-alert",
+               "--search", title, "--json", "number", "--jq", ".[0].number // empty"],
+              capture_output=True, text=True).stdout.strip()
+          if num:
+              subprocess.run(["gh", "issue", "comment", num, "--body", body], check=True)
+          else:
+              subprocess.run(["gh", "issue", "create", "--title", title,
+                              "--body", body, "--label", "ainews-alert"], check=True)
+          PY
+
+      - name: Fail the run if the pipeline failed
+        if: steps.daily.outcome == 'failure'
+        run: |
+          echo "daily pipeline reported failure — see the alert issue"
+          exit 1
