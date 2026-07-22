@@ -6,11 +6,13 @@ venv/
 *.egg-info/
 .pytest_cache/
 
-# Local data — the SQLite archive is generated at runtime, not committed
-data/*.db
+# Local data — the SQLite archive (data/ainews.db) IS committed so the daily
+# cloud pipeline persists dedup state + archive across runs. Only ignore the
+# transient WAL/journal sidecars.
 data/*.db-journal
 data/*.db-wal
 data/*.db-shm
+data/last_run.json
 
 # Secrets — never commit API keys
 .env
