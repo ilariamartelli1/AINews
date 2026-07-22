@@ -76,6 +76,30 @@ def test_failed_quality_not_published(tmp_path):
     assert "Bad one" not in index
 
 
+def test_bullet_list_comparison_renders(tmp_path):
+    # Extractive engine emits "- item" lists; the post template must render them
+    # as <ul> (regression: b.items collided with dict.items()).
+    with Store(tmp_path / "t.db") as store:
+        it = make_item("Bullet post", summary="llm framework", url="https://x.com/b")
+        it.status = "relevant"
+        store.insert_item(it)
+        item_id = store.recent(status="relevant")[0]["id"]
+        art = Article(
+            item_id=item_id, title="Bullet post",
+            what_changed="A new model shipped.", why_it_matters="Useful.",
+            comparison="Related prior coverage to compare against:\n- Alpha model\n- Beta model",
+            scope_tags=["llm"], quality_status="pass",
+            sources=[SourceRef(url="https://x.com/b", title="Bullet post", is_primary=True)],
+        )
+        store.insert_article(art)
+        out = tmp_path / "site"
+        SiteBuilder(store, scope=_scope()).build(out)
+
+    post = (out / "posts" / f"{item_id}.html").read_text()
+    assert "<ul>" in post
+    assert "Alpha model" in post and "Beta model" in post
+
+
 def test_feeds_contain_post(tmp_path):
     with Store(tmp_path / "t.db") as store:
         _seed(store, "Model X launches", "https://x.com/1")

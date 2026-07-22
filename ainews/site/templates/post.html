@@ -16,7 +16,7 @@
   <section class="section">
     <h2>What changed</h2>
     {% for b in post.what_changed_blocks %}
-      {% if b.type == 'list' %}<ul>{% for i in b.items %}<li>{{ i }}</li>{% endfor %}</ul>
+      {% if b.type == 'list' %}<ul>{% for i in b['items'] %}<li>{{ i }}</li>{% endfor %}</ul>
       {% else %}<p>{{ b.text }}</p>{% endif %}
     {% endfor %}
   </section>
@@ -25,7 +25,7 @@
   <section class="section">
     <h2>Why it matters</h2>
     {% for b in post.why_blocks %}
-      {% if b.type == 'list' %}<ul>{% for i in b.items %}<li>{{ i }}</li>{% endfor %}</ul>
+      {% if b.type == 'list' %}<ul>{% for i in b['items'] %}<li>{{ i }}</li>{% endfor %}</ul>
       {% else %}<p>{{ b.text }}</p>{% endif %}
     {% endfor %}
   </section>
@@ -35,7 +35,7 @@
   <section class="section">
     <h2>How it compares</h2>
     {% for b in post.comparison_blocks %}
-      {% if b.type == 'list' %}<ul>{% for i in b.items %}<li>{{ i }}</li>{% endfor %}</ul>
+      {% if b.type == 'list' %}<ul>{% for i in b['items'] %}<li>{{ i }}</li>{% endfor %}</ul>
       {% else %}<p>{{ b.text }}</p>{% endif %}
     {% endfor %}
     {% if post.comparisons %}
